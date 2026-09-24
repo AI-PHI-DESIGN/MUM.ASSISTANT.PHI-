@@ -21,51 +21,56 @@ en su propio ordenador y guarda los datos allí.
 
 ---
 
-## 1. Instalación (una sola vez)
+## 1. Instalación: descargar y abrir
 
-1. **Instalar Python** desde <https://www.python.org/downloads/>.
-   En Windows, en la primera pantalla del instalador, **marcar la casilla «Add python.exe to PATH»**.
-2. **Descargar este programa**: en GitHub, botón verde **Code → Download ZIP**. Descomprimirlo en una carpeta
-   fija, por ejemplo `Documentos\Asistente de Procura`.
-3. Hacer doble clic en **`Iniciar Asistente (Windows).bat`** (o en `Iniciar Asistente (Mac).command` en un Mac).
-   La primera vez tarda un par de minutos en instalarse. Después se abre el navegador solo.
-   - Windows puede mostrar «Windows protegió su PC»: pulsar *Más información → Ejecutar de todas formas*.
-   - **No cierre la ventana negra** mientras use el programa. Si la cierra, el programa se para.
-4. Truco: clic derecho sobre el `.bat` → *Enviar a → Escritorio (crear acceso directo)* para tenerlo a mano.
+**Descargar la última versión:**
 
-## 2. Configuración (pestaña «Ajustes»)
+- **Windows:** <https://github.com/AI-PHI-DESIGN/MUM.ASSISTANT.PHI-/releases/latest/download/AsistenteProcura.exe>
+- **Mac:** <https://github.com/AI-PHI-DESIGN/MUM.ASSISTANT.PHI-/releases/latest/download/AsistenteProcura-Mac.zip>
+
+No hace falta instalar nada más.
+
+1. Guardar el archivo en una carpeta fija (por ejemplo, *Documentos*) y hacer **doble clic**.
+   - Windows puede avisar con «Windows protegió su PC»: pulsar **Más información → Ejecutar de todas formas**
+     (sale porque el programa no está firmado por una empresa; es normal).
+   - Mac: descomprimir el zip, clic derecho sobre *AsistenteProcura* → **Abrir** → **Abrir**.
+2. Se abre el navegador con la **pantalla de bienvenida**. Rellenar los datos (ver apartado 2) y pulsar
+   **Empezar a usarlo**.
+3. A partir de ahí el programa **se abre solo al encender el ordenador** y revisa el correo en segundo plano.
+   Si llega algo importante y no está abierto en el navegador, se abre solo.
+   Para abrirlo a mano, doble clic en el archivo otra vez.
+4. **Cerrar programa** (abajo a la izquierda) lo apaga del todo. Mientras esté cerrado no revisa el correo.
+
+**Actualizar:** cuando haya una versión nueva aparece un aviso arriba con el enlace. Descargarla, cerrar el
+programa y sustituir el archivo antiguo por el nuevo. Los datos se conservan.
+
+## 2. Datos que pide la bienvenida (se pueden cambiar luego en «Ajustes»)
 
 ### Nombre
-Ponga su nombre **tal como aparece en las notificaciones** (p. ej. «MARÍA GARCÍA LÓPEZ»). Así la IA sabe cuál es
+Su nombre **tal como aparece en las notificaciones** (p. ej. «MARÍA GARCÍA LÓPEZ»). Así la IA sabe cuál es
 «nuestra parte» en cada procedimiento.
 
 ### Clave de la IA (Anthropic)
 1. Entrar en <https://console.anthropic.com> y crear una cuenta.
 2. En *Billing*, añadir saldo (con 10–20 € hay para bastante tiempo; se paga por uso).
-3. En *API Keys → Create Key*, copiar la clave (empieza por `sk-ant-`) y pegarla en Ajustes.
+3. En *API Keys → Create Key*, copiar la clave (empieza por `sk-ant-`) y pegarla. Botón **Comprobar clave**.
 
 Coste orientativo: unos céntimos por notificación analizada y por escrito redactado.
+(Esto lo puede hacer otra persona y darle la clave ya creada.)
 
 ### Correo
-Hay que marcar «Revisar el correo automáticamente» y rellenar:
-
-| Correo | Servidor IMAP | Puerto |
-|---|---|---|
-| Gmail | `imap.gmail.com` | 993 |
-| Outlook / Hotmail / Microsoft 365 | `outlook.office365.com` | 993 |
-| Otro (del despacho, Colegio...) | lo indica su proveedor | 993 |
+Elegir el tipo de correo, escribir la dirección y la contraseña, y pulsar **Comprobar correo**.
 
 - **Gmail:** no vale la contraseña normal. Hay que activar la verificación en dos pasos y crear una
-  **contraseña de aplicación** en <https://myaccount.google.com/apppasswords>; se pega esa (16 letras).
-- **Outlook / Microsoft 365:** Microsoft bloquea este tipo de acceso en muchas cuentas. Si da error, lo más fácil
-  es **reenviar automáticamente** el correo a una cuenta de Gmail y conectar esa.
+  **contraseña de aplicación** en <https://myaccount.google.com/apppasswords> (la pantalla lo explica paso a paso).
+- **Outlook / Microsoft 365:** Microsoft bloquea este acceso en muchas cuentas. Si da error, lo más fácil es
+  **reenviar automáticamente** el correo a una cuenta de Gmail y conectar esa.
 - El programa **no marca los correos como leídos** ni los borra: solo los lee.
 - La primera vez solo mira los correos de los **últimos 7 días**.
 
-### Festivos
+### Festivos (en «Ajustes»)
 Los nacionales ya van incluidos. Hay que añadir **cada año** los autonómicos y locales (vienen de ejemplo los
 de la Comunitat Valenciana y València de 2026, que **hay que revisar** con el calendario oficial del Colegio).
-Si un asunto es de un juzgado de otra localidad con otro festivo local, conviene añadirlo también.
 
 ## 3. Uso diario
 
@@ -89,7 +94,8 @@ Si un asunto es de un juzgado de otra localidad con otro festivo local, conviene
 
 ## 4. Privacidad y secreto profesional
 
-- Todos los datos (base de datos, PDFs, ajustes) se guardan **solo en este ordenador**, en la carpeta `data`.
+- Todos los datos (base de datos, PDFs, ajustes) se guardan **solo en este ordenador**, en la carpeta
+  `Documentos/Asistente de Procura`.
   El programa solo es accesible desde este mismo ordenador.
 - Para analizar documentos y redactar, el texto se envía a la IA de **Anthropic (Claude)**. Según sus condiciones
   comerciales, los datos enviados por la API **no se usan para entrenar** sus modelos. Aun así, conviene
@@ -98,7 +104,8 @@ Si un asunto es de un juzgado de otra localidad con otro festivo local, conviene
 
 ## 5. Copias de seguridad
 
-Copie la carpeta **`data`** (por ejemplo a un disco externo o a OneDrive) de vez en cuando. Ahí está todo.
+Copie la carpeta **`Documentos/Asistente de Procura`** (por ejemplo a un disco externo o a OneDrive) de vez en
+cuando. Ahí está todo. Si algo falla, el archivo `registro.log` de esa carpeta ayuda a saber qué pasó.
 
 ## 6. Aranzadi Fusión
 
@@ -117,4 +124,8 @@ lean o escriban sus expedientes. Opciones para que convivan:
 
 - Código en `app/` (Python + FastAPI + SQLite), interfaz en `static/` (HTML/JS sin dependencias).
 - Pruebas: `python -m pip install -r requirements.txt pytest httpx && python -m pytest`
+- Ejecutar desde el código: `python -m app` (o los lanzadores `Iniciar Asistente (...)`); los datos van a `data/`.
+- **Publicar una versión nueva:** basta con subir los cambios a la rama principal. GitHub Actions
+  (`.github/workflows/instalables.yml`) pasa las pruebas, genera el `.exe` y la `.app` con PyInstaller,
+  comprueba que arrancan y los publica en *Releases*. El programa avisa solo de que hay versión nueva.
 - Cómo se ha hecho y cómo repetirlo: [`docs/COMO_SE_HIZO.md`](docs/COMO_SE_HIZO.md).

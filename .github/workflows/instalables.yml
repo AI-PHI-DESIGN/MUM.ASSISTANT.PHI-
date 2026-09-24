@@ -1,0 +1,92 @@
+# Genera AsistenteProcura.exe (Windows) y AsistenteProcura.app (Mac) y los publica en "Releases".
+# Enlace fijo para descargar siempre la última versión:
+#   https://github.com/AI-PHI-DESIGN/MUM.ASSISTANT.PHI-/releases/latest
+name: Generar instalables
+
+on:
+  push:
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt pytest httpx
+      - run: python -m pytest -q
+
+  compilar:
+    needs: pruebas
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            opciones: --onefile --noconsole
+          - os: macos-latest
+            opciones: --onedir --windowed
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run: { shell: bash }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt pyinstaller pillow
+      - name: Número de versión
+        run: echo 'VERSION = "v${{ github.run_number }}"' > app/version.py
+      - run: python herramientas/icono.py
+      - name: PyInstaller
+        run: >
+          pyinstaller --noconfirm ${{ matrix.opciones }} --name AsistenteProcura --icon icono.png
+          --add-data "static:static" --collect-submodules uvicorn --collect-data docx lanzador.py
+      - name: Empaquetar (Windows)
+        if: runner.os == 'Windows'
+        run: mkdir salida && cp dist/AsistenteProcura.exe salida/
+      - name: Empaquetar (Mac)
+        if: runner.os == 'macOS'
+        run: mkdir salida && ditto -c -k --keepParent dist/AsistenteProcura.app salida/AsistenteProcura-Mac.zip
+      - name: Comprobar que arranca
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then EXE=dist/AsistenteProcura.exe; else EXE=dist/AsistenteProcura.app/Contents/MacOS/AsistenteProcura; fi
+          "$EXE" --segundo-plano &
+          for i in $(seq 1 30); do sleep 2; curl -sf http://127.0.0.1:8765/api/version && break; done
+          curl -sf http://127.0.0.1:8765/ > /dev/null
+          curl -sf -X POST http://127.0.0.1:8765/api/salir
+      - uses: actions/upload-artifact@v4
+        with:
+          name: instalable-${{ runner.os }}
+          path: salida/*
+
+  publicar:
+    needs: compilar
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: salida, merge-multiple: true }
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Asistente de Procura v${{ github.run_number }}
+          make_latest: "true"
+          files: salida/*
+          body: |
+            ## Descargar
+            - **Windows:** [AsistenteProcura.exe](https://github.com/${{ github.repository }}/releases/latest/download/AsistenteProcura.exe)
+            - **Mac:** [AsistenteProcura-Mac.zip](https://github.com/${{ github.repository }}/releases/latest/download/AsistenteProcura-Mac.zip)
+
+            ## Cómo instalarlo
+            1. Descarga el archivo y guárdalo en una carpeta fija (por ejemplo, *Documentos*).
+            2. Haz doble clic. La primera vez Windows puede avisar: pulsa **Más información → Ejecutar de todas formas**.
+               En Mac: clic derecho → **Abrir** → **Abrir**.
+            3. Se abre el navegador con la pantalla de bienvenida: rellena tus datos y listo.
+
+            Para actualizar: descarga la versión nueva, cierra el programa (menú → *Cerrar programa*) y
+            sustituye el archivo antiguo. Tus datos se conservan en *Documentos/Asistente de Procura*.

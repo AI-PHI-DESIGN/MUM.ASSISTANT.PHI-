@@ -27,6 +27,22 @@ def _quien(cfg: dict) -> str:
     return f"{nombre}, procuradora de los Tribunales en {cfg.get('ciudad') or 'España'}"
 
 
+def probar_clave(clave: str, modelo: str) -> None:
+    """Comprueba la clave sin gastar saldo (consulta los datos del modelo)."""
+    if not clave:
+        raise ErrorIA("Escribe la clave primero.")
+    try:
+        anthropic.Anthropic(api_key=clave).models.retrieve(modelo)
+    except anthropic.AuthenticationError:
+        raise ErrorIA("La clave no es válida. Cópiala de nuevo (empieza por sk-ant-).")
+    except anthropic.NotFoundError:
+        raise ErrorIA(f"La clave funciona, pero el modelo «{modelo}» no está disponible.")
+    except anthropic.APIConnectionError:
+        raise ErrorIA("No hay conexión a internet.")
+    except anthropic.APIStatusError as e:
+        raise ErrorIA(f"Error al comprobar la clave ({e.status_code}).")
+
+
 # ---------------------------------------------------------------- clasificar
 
 _NULL_STR = {"type": ["string", "null"]}

@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import threading
+import time
+import urllib.request
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 
@@ -12,24 +15,65 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, correo, db, ia, servicio
-from .config import ARCHIVOS, RAIZ
+from . import config, correo, db, ia, servicio, sistema
+from .config import ARCHIVOS, RECURSOS
+from .version import VERSION
 from .documentos import fecha_de_nombre_lexnet, nombre_seguro, texto_pdf
 
 @asynccontextmanager
 async def _ciclo(_app):
     db.iniciar()
     correo.arrancar_en_segundo_plano()
+    threading.Thread(target=_buscar_actualizacion, daemon=True).start()
     yield
 
 
 app = FastAPI(title="Asistente de Procura", lifespan=_ciclo)
 
 
+# ------------------------------------------------------------------ versión
+
+_actualizacion: dict = {"nueva": None}
+
+
+def _numero(v: str) -> int:
+    try:
+        return int(str(v).lstrip("v"))
+    except ValueError:
+        return 0
+
+
+def _buscar_actualizacion() -> None:
+    if VERSION == "desarrollo":
+        return
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{config.REPO}/releases/latest",
+                                     headers={"Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            ultima = json.load(r).get("tag_name", "")
+        if _numero(ultima) > _numero(VERSION):
+            _actualizacion["nueva"] = ultima
+    except Exception:
+        pass  # sin internet o GitHub no responde: no pasa nada
+
+
+@app.get("/api/version")
+def version():
+    return {"version": VERSION, "nueva": _actualizacion["nueva"], "descarga": config.URL_DESCARGA,
+            "datos": str(config.DATA)}
+
+
+@app.post("/api/salir")
+def salir():
+    threading.Timer(0.5, lambda: os._exit(0)).start()
+    return {"ok": True}
+
+
 # ------------------------------------------------------------------ resumen
 
 @app.get("/api/resumen")
 def resumen():
+    correo.estado["ultimo_contacto_navegador"] = time.time()
     hoy = date.today()
     semana = (hoy + timedelta(days=7)).isoformat()
     plazos = db.filas("""
@@ -45,6 +89,7 @@ def resumen():
         "ultimo_documento_id": (db.fila("SELECT MAX(id) AS m FROM documentos") or {}).get("m") or 0,
         "correo": {**correo.estado, "activo": config.cargar().get("correo_activo")},
         "configurado": bool(config.cargar().get("anthropic_api_key")),
+        "bienvenida_hecha": bool(config.cargar().get("bienvenida_hecha")),
     }
 
 
@@ -384,8 +429,43 @@ def guardar_ajustes(cambios: dict):
     # Los campos secretos que vuelven enmascarados no se tocan
     cambios = {k: v for k, v in cambios.items() if v != "********"}
     cfg = config.guardar(cambios)
+    if "arrancar_con_el_ordenador" in cambios:
+        error = sistema.configurar_arranque(bool(cambios["arrancar_con_el_ordenador"]))
+        if error:
+            raise HTTPException(500, error)
     correo.pedir_revision()
     return config.publico(cfg)
+
+
+class PruebaIA(BaseModel):
+    anthropic_api_key: str = ""
+
+
+@app.post("/api/probar/ia")
+def probar_ia(p: PruebaIA):
+    cfg = config.cargar()
+    clave = p.anthropic_api_key if p.anthropic_api_key and p.anthropic_api_key != "********" else cfg["anthropic_api_key"]
+    try:
+        ia.probar_clave(clave, cfg.get("modelo") or "claude-opus-5")
+    except ia.ErrorIA as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True}
+
+
+class PruebaCorreo(BaseModel):
+    imap_host: str
+    imap_puerto: int = 993
+    imap_usuario: str
+    imap_password: str = ""
+
+
+@app.post("/api/probar/correo")
+def probar_correo(p: PruebaCorreo):
+    clave = p.imap_password if p.imap_password and p.imap_password != "********" else config.cargar()["imap_password"]
+    try:
+        return {"ok": True, "mensajes": correo.probar(p.imap_host, p.imap_puerto, p.imap_usuario, clave)}
+    except Exception as e:
+        raise HTTPException(400, correo.explicar_error(e, p.imap_host))
 
 
 @app.post("/api/correo/revisar")
@@ -393,7 +473,7 @@ def revisar_correo():
     try:
         return correo.revisar_ahora()
     except Exception as e:
-        raise HTTPException(400, f"No se pudo leer el correo: {e}")
+        raise HTTPException(400, str(e))
 
 
-app.mount("/", StaticFiles(directory=RAIZ / "static", html=True), name="static")
+app.mount("/", StaticFiles(directory=RECURSOS / "static", html=True), name="static")

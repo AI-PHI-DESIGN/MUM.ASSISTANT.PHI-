@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 data/
 .pytest_cache/
+*.spec
+build/
+dist/
+icono.png

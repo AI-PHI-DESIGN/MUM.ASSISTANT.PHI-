@@ -3,6 +3,11 @@
 
 const $ = (s, el = document) => el.querySelector(s);
 const vista = $("#vista");
+const PROVEEDORES = {
+  gmail: { host: "imap.gmail.com", nombre: "Gmail" },
+  outlook: { host: "outlook.office365.com", nombre: "Outlook / Hotmail / Microsoft 365" },
+  otro: { host: "", nombre: "Otro" },
+};
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
 const CATEGORIAS = {
@@ -530,6 +535,98 @@ async function abrirCorreo(i) {
   location.href = `mailto:${encodeURIComponent(para)}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(resto.join("\n").trim())}`;
 }
 
+// ================================================================ BIENVENIDA
+VISTAS.bienvenida = async () => {
+  const c = await api("/api/ajustes");
+  const prov = c.imap_host.includes("gmail") ? "gmail" : c.imap_host.includes("office365") || c.imap_host.includes("outlook") ? "outlook" : c.imap_host ? "otro" : "gmail";
+  vista.innerHTML = `
+    <div class="cabecera"><div><h1>¡Bienvenida!</h1><div class="suave">Unos pocos datos y listo. Se guardan solo en este ordenador.</div></div></div>
+    <div class="pasos">
+      <div class="tarjeta paso"><h3>Tus datos</h3>
+        <div class="fila">
+          <div><label>Tu nombre, tal como sale en las notificaciones</label><input id="b-nombre" value="${esc(c.nombre_procuradora)}" placeholder="MARÍA GARCÍA LÓPEZ"></div>
+          <div><label>Ciudad</label><input id="b-ciudad" value="${esc(c.ciudad)}"></div>
+        </div></div>
+      <div class="tarjeta paso"><h3>Clave de la inteligencia artificial</h3>
+        <label>Clave (empieza por sk-ant-)</label><input type="password" id="b-clave" value="${esc(c.anthropic_api_key)}" autocomplete="off">
+        <div class="botones" style="margin-top:8px"><button onclick="probarIA('b-clave', 'b-ia-res')">Comprobar clave</button><span id="b-ia-res"></span></div>
+        <div class="ayuda">Si no te la han dado ya: entra en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>,
+          crea una cuenta, añade saldo en <i>Billing</i> y crea una clave en <i>API Keys</i>. Cópiala y pégala aquí.</div></div>
+      <div class="tarjeta paso"><h3>Tu correo</h3>
+        <div class="fila">
+          <div><label>¿Qué correo usas?</label><select id="b-prov">${Object.entries(PROVEEDORES).map(([k, v]) => `<option value="${k}" ${k === prov ? "selected" : ""}>${v.nombre}</option>`).join("")}</select></div>
+          <div><label>Dirección de correo</label><input type="email" id="b-usuario" value="${esc(c.imap_usuario)}" placeholder="nombre@gmail.com"></div>
+        </div>
+        <div class="fila oculto" id="b-otro"><div><label>Servidor IMAP (te lo dice tu proveedor)</label><input id="b-host" value="${esc(c.imap_host)}"></div></div>
+        <label>Contraseña de aplicación</label><input type="password" id="b-pass" value="${esc(c.imap_password)}" autocomplete="off">
+        <div class="botones" style="margin-top:8px"><button onclick="probarCorreoBienvenida()">Comprobar correo</button><span id="b-correo-res"></span></div>
+        <div class="ayuda" id="b-ayuda-correo"></div></div>
+      <div class="tarjeta paso"><h3>Últimos detalles</h3>
+        <label class="check"><input type="checkbox" id="b-arranque" ${c.arrancar_con_el_ordenador ? "checked" : ""}> Abrir el asistente al encender el ordenador (recomendado, así no se pierde ningún aviso)</label>
+        <p class="suave">Los festivos de la Comunitat Valenciana y de València de 2026 ya vienen puestos. Revísalos en <i>Ajustes</i> y añade los de cada año.</p>
+        <button class="principal" onclick="terminarBienvenida()">Empezar a usarlo</button></div>
+    </div>`;
+  const ayudaCorreo = () => {
+    const p = $("#b-prov").value;
+    $("#b-otro").classList.toggle("oculto", p !== "otro");
+    $("#b-ayuda-correo").innerHTML = p === "gmail"
+      ? `Gmail no deja usar la contraseña normal. Hay que crear una <b>contraseña de aplicación</b>:<ol>
+          <li>Entra en <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank">Verificación en dos pasos</a> y actívala si no lo está.</li>
+          <li>Entra en <a href="https://myaccount.google.com/apppasswords" target="_blank">Contraseñas de aplicación</a>, escribe «Asistente» y pulsa <i>Crear</i>.</li>
+          <li>Copia las 16 letras que salen y pégalas arriba.</li></ol>`
+      : p === "outlook"
+      ? `Prueba con tu contraseña. Si Microsoft no deja entrar (pasa a menudo), la solución es crear una cuenta de Gmail,
+         <a href="https://support.microsoft.com/es-es/office/activar-o-desactivar-el-reenv%C3%ADo-autom%C3%A1tico-en-outlook-7f2670a1-7fff-4475-8a3c-5822d63b0c8e" target="_blank">reenviar ahí automáticamente</a> tu correo y conectar la de Gmail.`
+      : `Pide a tu proveedor de correo el «servidor IMAP» y una contraseña para programas.`;
+  };
+  $("#b-prov").addEventListener("change", ayudaCorreo); ayudaCorreo();
+};
+
+function datosCorreoBienvenida() {
+  const p = $("#b-prov").value;
+  return { imap_host: p === "otro" ? $("#b-host").value.trim() : PROVEEDORES[p].host, imap_puerto: 993,
+    imap_usuario: $("#b-usuario").value.trim(), imap_password: $("#b-pass").value.replace(/\s/g, "") };
+}
+async function probarIA(campo, salida) {
+  const res = $("#" + salida);
+  res.innerHTML = "Comprobando…";
+  try {
+    const r = await fetch("/api/probar/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ anthropic_api_key: $("#" + campo).value.trim() }) });
+    res.innerHTML = r.ok ? `<span class="ok-texto">✓ La clave funciona</span>` : `<span class="error-texto">${esc((await r.json()).detail)}</span>`;
+  } catch { res.innerHTML = `<span class="error-texto">No se pudo comprobar.</span>`; }
+}
+async function probarCorreo(datos, salida) {
+  const res = $("#" + salida);
+  res.innerHTML = "Conectando…";
+  try {
+    const r = await fetch("/api/probar/correo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(datos) });
+    const j = await r.json();
+    res.innerHTML = r.ok ? `<span class="ok-texto">✓ Conectado (${j.mensajes} correos en la bandeja)</span>` : `<span class="error-texto">${esc(j.detail)}</span>`;
+    return r.ok;
+  } catch { res.innerHTML = `<span class="error-texto">No se pudo comprobar.</span>`; return false; }
+}
+const probarCorreoBienvenida = () => probarCorreo(datosCorreoBienvenida(), "b-correo-res");
+
+async function terminarBienvenida() {
+  const correo = datosCorreoBienvenida();
+  const body = { nombre_procuradora: $("#b-nombre").value.trim(), ciudad: $("#b-ciudad").value.trim(),
+    anthropic_api_key: $("#b-clave").value.trim(), ...correo,
+    correo_activo: !!(correo.imap_host && correo.imap_usuario && correo.imap_password),
+    arrancar_con_el_ordenador: $("#b-arranque").checked, bienvenida_hecha: true };
+  if (!body.nombre_procuradora) return avisar("Falta tu nombre");
+  if (!body.anthropic_api_key) return avisar("Falta la clave de la inteligencia artificial");
+  await api("/api/ajustes", { method: "PUT", body });
+  if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
+  avisar(body.correo_activo ? "¡Listo! Voy a mirar tu correo…" : "¡Listo! (El correo lo puedes configurar luego en Ajustes)");
+  location.hash = "hoy";
+}
+
+async function cerrarPrograma() {
+  if (!confirm("Si cierras el programa no se revisará el correo ni recibirás avisos hasta que lo vuelvas a abrir. ¿Cerrar?")) return;
+  await fetch("/api/salir", { method: "POST" });
+  document.body.innerHTML = `<main style="padding:40px"><h1>Programa cerrado</h1><p>Puedes cerrar esta pestaña. Para volver a abrirlo, haz doble clic en <b>AsistenteProcura</b>.</p></main>`;
+}
+
 // ================================================================ AJUSTES
 VISTAS.ajustes = async () => {
   const c = await api("/api/ajustes");
@@ -542,13 +639,18 @@ VISTAS.ajustes = async () => {
       <div class="tarjeta"><h3>Inteligencia artificial</h3>
         ${campo("anthropic_api_key", "Clave de Anthropic (empieza por sk-ant-)", "password", 'autocomplete="off"')}
         <small>Se consigue en console.anthropic.com → API Keys. Ver el manual (README).</small>
+        <div class="botones" style="margin-top:8px"><button onclick="probarIA('s-anthropic_api_key', 's-ia-res')">Comprobar clave</button><span id="s-ia-res"></span></div>
         ${campo("modelo", "Modelo")}</div>
       <div class="tarjeta"><h3>Correo</h3>
         <label class="check"><input type="checkbox" id="s-correo_activo" ${c.correo_activo ? "checked" : ""}> Revisar el correo automáticamente</label>
         <div class="fila">${campo("imap_host", "Servidor IMAP")}${campo("imap_puerto", "Puerto", "number")}</div>
         <div class="fila">${campo("imap_usuario", "Usuario (dirección de correo)", "email")}${campo("imap_password", "Contraseña de aplicación", "password", 'autocomplete="off"')}</div>
         <div class="fila">${campo("imap_carpeta", "Carpeta")}${campo("revisar_cada_min", "Revisar cada (minutos)", "number")}</div>
-        <small>Gmail: imap.gmail.com · Outlook/Hotmail: outlook.office365.com · Para Gmail hace falta una «contraseña de aplicación» (ver manual).</small></div>
+        <div class="botones" style="margin-top:8px"><button onclick="probarCorreo({imap_host: $('#s-imap_host').value, imap_puerto: +$('#s-imap_puerto').value, imap_usuario: $('#s-imap_usuario').value, imap_password: $('#s-imap_password').value}, 's-correo-res')">Comprobar correo</button><span id="s-correo-res"></span></div>
+        <small>Gmail: imap.gmail.com · Outlook/Hotmail: outlook.office365.com · Para Gmail hace falta una «contraseña de aplicación» (ver <a href="#bienvenida">bienvenida</a>).</small></div>
+      <div class="tarjeta"><h3>Programa</h3>
+        <label class="check"><input type="checkbox" id="s-arrancar_con_el_ordenador" ${c.arrancar_con_el_ordenador ? "checked" : ""}> Abrir al encender el ordenador</label>
+        <p class="suave" id="s-info-version"></p></div>
       <div class="tarjeta"><h3>Calendario de días inhábiles</h3>
         <label class="check"><input type="checkbox" id="s-agosto_inhabil" ${c.agosto_inhabil ? "checked" : ""}> Agosto inhábil</label>
         <label class="check"><input type="checkbox" id="s-navidad_inhabil" ${c.navidad_inhabil ? "checked" : ""}> Del 24 de diciembre al 6 de enero inhábil</label>
@@ -557,12 +659,14 @@ VISTAS.ajustes = async () => {
         <small>Una fecha por línea (AAAA-MM-DD). Añade cada año los festivos de la Comunitat y de la localidad del juzgado.</small></div>
       <div class="botones"><button class="principal" onclick="guardarAjustes()">Guardar ajustes</button></div>
     </div>`;
+  const v = await api("/api/version");
+  $("#s-info-version").innerHTML = `Versión ${esc(v.version)}. Tus datos están en: <code>${esc(v.datos)}</code> (copia esa carpeta de vez en cuando como copia de seguridad).`;
 };
 async function guardarAjustes() {
   const body = {};
   ["nombre_procuradora", "ciudad", "anthropic_api_key", "modelo", "imap_host", "imap_usuario", "imap_password", "imap_carpeta", "festivos"].forEach((k) => (body[k] = $(`#s-${k}`).value));
   ["imap_puerto", "revisar_cada_min"].forEach((k) => (body[k] = +$(`#s-${k}`).value));
-  ["correo_activo", "agosto_inhabil", "navidad_inhabil"].forEach((k) => (body[k] = $(`#s-${k}`).checked));
+  ["correo_activo", "agosto_inhabil", "navidad_inhabil", "arrancar_con_el_ordenador"].forEach((k) => (body[k] = $(`#s-${k}`).checked));
   await api("/api/ajustes", { method: "PUT", body });
   avisar("Ajustes guardados");
   if (body.correo_activo && "Notification" in window && Notification.permission === "default") Notification.requestPermission();
@@ -598,6 +702,21 @@ async function actualizarContadores() {
 if ("Notification" in window && Notification.permission === "default") {
   document.addEventListener("click", () => Notification.requestPermission(), { once: true });
 }
-ir();
-actualizarContadores();
-setInterval(actualizarContadores, 30000);
+(async () => {
+  try {
+    const r = await api("/api/resumen");
+    if (!r.bienvenida_hecha && !location.hash.startsWith("#ajustes")) location.hash = "bienvenida";
+  } catch {}
+  ir();
+  actualizarContadores();
+  setInterval(actualizarContadores, 30000);
+  try {
+    const v = await api("/api/version");
+    $("#version").textContent = v.version === "desarrollo" ? "" : `v${v.version.replace(/^v/, "")}`;
+    if (v.nueva) {
+      const a = $("#actualizacion");
+      a.innerHTML = `Hay una versión nueva del programa. <a href="${esc(v.descarga)}" target="_blank">Descárgala aquí</a>, cierra este programa y abre el nuevo (tus datos se conservan).`;
+      a.classList.remove("oculto");
+    }
+  } catch {}
+})();

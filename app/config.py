@@ -3,11 +3,18 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 
+CONGELADO = getattr(sys, "frozen", False)  # True cuando se ejecuta como .exe / .app
 RAIZ = Path(__file__).resolve().parent.parent
-DATA = Path(os.environ.get("PROCURA_DATA") or RAIZ / "data")
+RECURSOS = Path(getattr(sys, "_MEIPASS", RAIZ))  # donde está la carpeta static
+# En el ejecutable los datos van a Documentos, fáciles de encontrar y de copiar
+_DATA_POR_DEFECTO = Path.home() / "Documents" / "Asistente de Procura" if CONGELADO else RAIZ / "data"
+DATA = Path(os.environ.get("PROCURA_DATA") or _DATA_POR_DEFECTO)
+REPO = "AI-PHI-DESIGN/MUM.ASSISTANT.PHI-"
+URL_DESCARGA = f"https://github.com/{REPO}/releases/latest"
 ARCHIVOS = DATA / "archivos"
 CONFIG_PATH = DATA / "config.json"
 
@@ -39,6 +46,8 @@ POR_DEFECTO = {
     "festivos": FESTIVOS_INICIALES,
     "agosto_inhabil": True,
     "navidad_inhabil": True,
+    "arrancar_con_el_ordenador": True,
+    "bienvenida_hecha": False,
 }
 
 _lock = threading.Lock()

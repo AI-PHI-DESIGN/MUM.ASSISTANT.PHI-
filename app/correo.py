@@ -11,13 +11,13 @@ from datetime import datetime, timedelta
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
 
-from . import config, db, servicio
+from . import config, db, servicio, sistema
 from .config import ARCHIVOS
 from .documentos import fecha_de_nombre_lexnet, nombre_seguro, texto_pdf
 
 _evento_revisar = threading.Event()
 _lock_revisar = threading.Lock()
-estado = {"ultima_revision": None, "ultimo_error": None, "revisando": False}
+estado = {"ultima_revision": None, "ultimo_error": None, "revisando": False, "ultimo_contacto_navegador": 0.0}
 
 
 def _decodificar(valor: str | None) -> str:
@@ -117,14 +117,50 @@ def _revisar() -> dict:
                 db.set_estado("ultimo_uid", str(uid))
         estado["ultimo_error"] = None
     except Exception as e:
-        estado["ultimo_error"] = f"{type(e).__name__}: {e}"
-        raise
+        estado["ultimo_error"] = explicar_error(e, cfg.get("imap_host"))
+        raise RuntimeError(estado["ultimo_error"]) from e
     finally:
         estado["revisando"] = False
         estado["ultima_revision"] = db.ahora()
     for d in nuevos:
         servicio.procesar(d)
+    _avisar_si_hace_falta(nuevos)
     return {"nuevos": len(nuevos)}
+
+
+def _avisar_si_hace_falta(ids: list[int]) -> None:
+    """Si llega algo importante y no hay ninguna pestaña abierta, abre el programa."""
+    if not ids or time.time() - estado["ultimo_contacto_navegador"] < 90:
+        return  # hay una pestaña abierta: ya avisará ella
+    marcas = ",".join("?" for _ in ids)
+    importantes = db.filas(f"""SELECT id FROM documentos WHERE id IN ({marcas}) AND estado = 'procesado'
+                               AND COALESCE(categoria, '') NOT IN ('publicidad', 'otro')""", ids)
+    if importantes:
+        sistema.abrir_navegador("/#hoy")
+
+
+def probar(host: str, puerto: int, usuario: str, clave: str) -> int:
+    with imaplib.IMAP4_SSL(host, int(puerto or 993), timeout=30) as imap:
+        imap.login(usuario, clave)
+        _, datos = imap.select("INBOX", readonly=True)
+        return int(datos[0])
+
+
+def explicar_error(e: Exception, host: str) -> str:
+    texto = str(e)
+    if isinstance(e, imaplib.IMAP4.error) or "AUTHENTICATIONFAILED" in texto or "Invalid credentials" in texto:
+        if "gmail" in (host or ""):
+            return ("Gmail no acepta la contraseña. Hay que usar una «contraseña de aplicación» (16 letras), "
+                    "no la contraseña normal. Mira las instrucciones de al lado.")
+        if "office365" in (host or "") or "outlook" in (host or ""):
+            return ("Microsoft no deja entrar con contraseña. Solución: reenviar el correo a una cuenta de Gmail "
+                    "y conectar esa.")
+        return "Usuario o contraseña incorrectos."
+    if "getaddrinfo" in texto or "Name or service" in texto or "nodename" in texto:
+        return "No se encuentra el servidor de correo. Revisa el nombre del servidor o la conexión a internet."
+    if "timed out" in texto:
+        return "El servidor de correo no responde. Revisa la conexión a internet."
+    return f"No se pudo conectar: {texto}"
 
 
 def pedir_revision() -> None:

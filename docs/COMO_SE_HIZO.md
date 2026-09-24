@@ -32,8 +32,12 @@ igual para otro profesional (abogado, gestor, administrador de fincas, médico..
 | Asistente | Streaming (`messages.stream`) → `StreamingResponse` → `fetch().body.getReader()` | El texto aparece mientras se escribe |
 | Word | `python-docx` | Lo que usan en el despacho |
 | Avisos | Notificaciones del navegador + contador en la pestaña | Sin instalar nada más |
-| Instalación | `.bat` / `.command` que crean `.venv` e instalan la primera vez | Doble clic |
-| Ajustes | `data/config.json` editable desde la pestaña Ajustes | No tocar archivos a mano |
+| Distribución | **Ejecutable** con PyInstaller (`.exe` onefile sin consola / `.app` en Mac) generado por **GitHub Actions** y publicado en *Releases* | La usuaria solo descarga y hace doble clic; no instala Python |
+| Primer uso | Pantalla **Bienvenida** con botones «Comprobar clave» / «Comprobar correo» | Pone sus datos sin ayuda |
+| Segundo plano | Arranque con el sistema (Windows: registro `HKCU\...\Run`; Mac: LaunchAgent) con `--segundo-plano`; si llega algo importante y no hay pestaña abierta, abre el navegador | Avisos aunque no tenga la app abierta |
+| Actualizaciones | La app consulta la última *Release* de GitHub y muestra un aviso con el enlace | Subir cambios = nueva versión para ella |
+| Datos | Ejecutable: `Documentos/Asistente de Procura`; desarrollo: `data/`; tests: `PROCURA_DATA` | Fácil de encontrar y copiar |
+| Ajustes | `config.json` editable desde la pestaña Ajustes | No tocar archivos a mano |
 
 ## 3. Principio clave: la IA extrae, el código calcula
 
@@ -73,7 +77,12 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 6. `main.py` (API) y la interfaz.
 7. Tests de extremo a extremo con `TestClient` y una ficha simulada (sin gastar IA).
 8. Capturas con Playwright para revisar la interfaz (Chromium en `/opt/pw-browsers`).
-9. Lanzadores, README para la usuaria, esta receta.
+9. Empaquetado: `lanzador.py` + PyInstaller (`--add-data static:static --collect-submodules uvicorn
+   --collect-data docx`). Probarlo **en local** (en Linux sale un binario Linux) con una carpeta personal vacía
+   (`HOME=/tmp/x`) antes de montar el workflow.
+10. Workflow `.github/workflows/instalables.yml`: pruebas → compilar Windows y Mac → comprobar que arrancan
+    (`curl /api/version`) → publicar Release `v<n>` con enlaces fijos `releases/latest/download/...`.
+11. Bienvenida, «Cerrar programa», aviso de actualización, README para la usuaria, esta receta.
 
 ## 6. Problemas encontrados y soluciones
 
@@ -85,6 +94,15 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 - El generador de streaming debe capturar sus propios errores, o la respuesta llega vacía.
 - Outlook/Microsoft 365 suele bloquear IMAP con contraseña → alternativa: reenvío a Gmail.
 - Aranzadi Fusión no tiene API pública conocida → exportar `.ics`, leer sus avisos por correo, importar CSV.
+- Ejecutable sin consola (`--noconsole` / `--windowed`): `sys.stdout` es `None` y uvicorn falla → redirigir
+  stdout/stderr a `registro.log` y pasar `log_config=None` a `uvicorn.run(app, ...)` (pasar el objeto `app`,
+  no el texto `"app.main:app"`).
+- Recursos dentro del ejecutable: usar `sys._MEIPASS` para encontrar `static/`.
+- Evitar dos copias abiertas: antes de arrancar, consultar `http://127.0.0.1:8765/api/version`; si responde,
+  solo abrir el navegador.
+- Sin firma de código: Windows SmartScreen («Más información → Ejecutar de todas formas») y Mac Gatekeeper
+  (clic derecho → Abrir). Explicarlo en el README y en la Release.
+- Repositorio **público** → no subir nunca datos reales (se anonimizaron los tests).
 
 ## 7. Para adaptarlo a otra profesión
 
