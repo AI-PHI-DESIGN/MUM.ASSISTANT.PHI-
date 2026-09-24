@@ -96,7 +96,10 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 - Outlook/Microsoft 365 no admite IMAP con contraseña → «Conectar con Outlook» (MSAL, device code, XOAUTH2,
   permiso `https://outlook.office.com/IMAP.AccessAsUser.All`). El alta en Entra debe ser *multiinquilino +
   cuentas personales* y con *flujos de clientes públicos* activado. El Id. de cliente va en
-  `app/microsoft.py` (o en Ajustes → Avanzado para probar). Alternativa sin alta: reenvío a Gmail.
+  `app/microsoft.py` (o en Ajustes → Avanzado para probar). Comprobar el alta sin iniciar sesión:
+  `msal.PublicClientApplication(id, authority=".../common").initiate_device_flow(scopes=[...])` debe dar un
+  `user_code` con `common`, `consumers` y `organizations`. El ajuste «flujos de clientes públicos» solo se nota
+  al terminar el login (error AADSTS7000218). Alternativa sin alta: reenvío a Gmail.
 - Aranzadi Fusión no tiene API pública conocida → exportar `.ics`, leer sus avisos por correo, importar CSV.
 - Ejecutable sin consola (`--noconsole` / `--windowed`): `sys.stdout` es `None` y uvicorn falla → redirigir
   stdout/stderr a `registro.log` y pasar `log_config=None` a `uvicorn.run(app, ...)` (pasar el objeto `app`,

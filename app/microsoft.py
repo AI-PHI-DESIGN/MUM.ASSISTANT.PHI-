@@ -17,7 +17,7 @@ import msal
 from . import config
 
 # Id. de aplicación (cliente) registrado en Microsoft Entra. No es secreto.
-CLIENT_ID_POR_DEFECTO = ""
+CLIENT_ID_POR_DEFECTO = "2139522e-3dfa-4648-8df9-a6b0ad0cd683"
 AUTORIDAD = "https://login.microsoftonline.com/common"
 PERMISOS = ["https://outlook.office.com/IMAP.AccessAsUser.All"]
 HOST_IMAP = "outlook.office365.com"
@@ -102,6 +102,9 @@ def _explicar(error: str | None, descripcion: str | None) -> str:
         return "Se canceló el inicio de sesión."
     if error in ("expired_token", "code_expired"):
         return "El código caducó. Pulsa otra vez «Conectar con Outlook»."
+    if descripcion and "AADSTS7000218" in descripcion:
+        return ("Falta un ajuste en el alta de Microsoft: en Entra → la aplicación → Autenticación, activar "
+                "«Permitir flujos de clientes públicos» y guardar. Después, volver a conectar.")
     if descripcion and ("AADSTS65001" in descripcion or "admin" in descripcion.lower()):
         return ("Tu cuenta es de una organización que no deja autorizar programas. "
                 "Hay que pedir permiso al administrador del correo.")

@@ -65,8 +65,7 @@ Elegir el tipo de correo, escribir la dirección y la contraseña, y pulsar **Co
   **contraseña de aplicación** en <https://myaccount.google.com/apppasswords> (la pantalla lo explica paso a paso).
 - **Outlook / Hotmail / Microsoft 365:** pulsar **Conectar con Outlook**. Sale un código; se abre la página de
   Microsoft, se escribe el código, se entra con la cuenta de siempre y se pulsa *Aceptar*. No hay que crear
-  ninguna contraseña. (Antes, quien instala el programa tiene que darlo de alta en Microsoft una vez:
-  [docs/MICROSOFT.md](docs/MICROSOFT.md).)
+  ninguna contraseña. (El programa ya está dado de alta en Microsoft; detalles en [docs/MICROSOFT.md](docs/MICROSOFT.md).)
 - El programa **no marca los correos como leídos** ni los borra: solo los lee.
 - La primera vez solo mira los correos de los **últimos 7 días**.
 

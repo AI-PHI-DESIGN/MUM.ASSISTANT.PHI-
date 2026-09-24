@@ -1,5 +1,9 @@
 # Dar de alta el programa en Microsoft (una sola vez)
 
+> ✅ **Hecho.** El programa está registrado y su Id. de aplicación (cliente) va incluido en `app/microsoft.py`
+> (`2139522e-3dfa-4648-8df9-a6b0ad0cd683`, multiinquilino + cuentas personales). Esta guía queda para
+> repetirlo en otro proyecto o si hubiera que registrarlo de nuevo.
+
 Necesario para el botón **«Conectar con Outlook»**. Microsoft ya no deja que los programas lean el correo
 con usuario y contraseña; hay que registrar el programa y que la usuaria lo autorice con su cuenta.
 
