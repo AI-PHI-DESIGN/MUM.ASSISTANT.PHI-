@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from email.header import decode_header, make_header
 from email.utils import parsedate_to_datetime
 
-from . import config, db, servicio, sistema
+from . import config, db, microsoft, servicio, sistema
 from .config import ARCHIVOS
 from .documentos import fecha_de_nombre_lexnet, nombre_seguro, texto_pdf
 
@@ -75,13 +75,18 @@ def revisar_ahora() -> dict:
 
 def _revisar() -> dict:
     cfg = config.cargar()
-    if not (cfg.get("imap_host") and cfg.get("imap_usuario") and cfg.get("imap_password")):
+    con_microsoft = cfg.get("imap_auth") == "microsoft"
+    if not con_microsoft and not (cfg.get("imap_host") and cfg.get("imap_usuario") and cfg.get("imap_password")):
         raise RuntimeError("Falta configurar el correo en Ajustes.")
     estado["revisando"] = True
     nuevos = []
     try:
-        with imaplib.IMAP4_SSL(cfg["imap_host"], int(cfg.get("imap_puerto") or 993), timeout=60) as imap:
-            imap.login(cfg["imap_usuario"], cfg["imap_password"])
+        host = microsoft.HOST_IMAP if con_microsoft else cfg["imap_host"]
+        with imaplib.IMAP4_SSL(host, int(cfg.get("imap_puerto") or 993), timeout=60) as imap:
+            if con_microsoft:
+                microsoft.autenticar_imap(imap)
+            else:
+                imap.login(cfg["imap_usuario"], cfg["imap_password"])
             imap.select(cfg.get("imap_carpeta") or "INBOX", readonly=True)  # no marca como leídos
             ultimo_uid = int(db.get_estado("ultimo_uid", "0"))
             if ultimo_uid == 0:
@@ -139,22 +144,26 @@ def _avisar_si_hace_falta(ids: list[int]) -> None:
         sistema.abrir_navegador("/#hoy")
 
 
-def probar(host: str, puerto: int, usuario: str, clave: str) -> int:
-    with imaplib.IMAP4_SSL(host, int(puerto or 993), timeout=30) as imap:
-        imap.login(usuario, clave)
+def probar(host: str, puerto: int, usuario: str, clave: str, con_microsoft: bool = False) -> int:
+    with imaplib.IMAP4_SSL(microsoft.HOST_IMAP if con_microsoft else host, int(puerto or 993), timeout=30) as imap:
+        if con_microsoft:
+            microsoft.autenticar_imap(imap)
+        else:
+            imap.login(usuario, clave)
         _, datos = imap.select("INBOX", readonly=True)
         return int(datos[0])
 
 
 def explicar_error(e: Exception, host: str) -> str:
     texto = str(e)
+    if isinstance(e, microsoft.ErrorMicrosoft):
+        return texto
     if isinstance(e, imaplib.IMAP4.error) or "AUTHENTICATIONFAILED" in texto or "Invalid credentials" in texto:
         if "gmail" in (host or ""):
             return ("Gmail no acepta la contraseña. Hay que usar una «contraseña de aplicación» (16 letras), "
                     "no la contraseña normal. Mira las instrucciones de al lado.")
         if "office365" in (host or "") or "outlook" in (host or ""):
-            return ("Microsoft no deja entrar con contraseña. Solución: reenviar el correo a una cuenta de Gmail "
-                    "y conectar esa.")
+            return ("Microsoft no deja entrar con contraseña. Usa el botón «Conectar con Outlook».")
         return "Usuario o contraseña incorrectos."
     if "getaddrinfo" in texto or "Name or service" in texto or "nodename" in texto:
         return "No se encuentra el servidor de correo. Revisa el nombre del servidor o la conexión a internet."

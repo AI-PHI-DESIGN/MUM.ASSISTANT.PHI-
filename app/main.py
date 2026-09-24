@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import config, correo, db, ia, servicio, sistema
+from . import config, correo, db, ia, microsoft, servicio, sistema
 from .config import ARCHIVOS, RECURSOS
 from .version import VERSION
 from .documentos import fecha_de_nombre_lexnet, nombre_seguro, texto_pdf
@@ -453,17 +453,19 @@ def probar_ia(p: PruebaIA):
 
 
 class PruebaCorreo(BaseModel):
-    imap_host: str
+    imap_host: str = ""
     imap_puerto: int = 993
-    imap_usuario: str
+    imap_usuario: str = ""
     imap_password: str = ""
+    imap_auth: str = "password"
 
 
 @app.post("/api/probar/correo")
 def probar_correo(p: PruebaCorreo):
     clave = p.imap_password if p.imap_password and p.imap_password != "********" else config.cargar()["imap_password"]
     try:
-        return {"ok": True, "mensajes": correo.probar(p.imap_host, p.imap_puerto, p.imap_usuario, clave)}
+        return {"ok": True, "mensajes": correo.probar(p.imap_host, p.imap_puerto, p.imap_usuario, clave,
+                                                     con_microsoft=p.imap_auth == "microsoft")}
     except Exception as e:
         raise HTTPException(400, correo.explicar_error(e, p.imap_host))
 
@@ -474,6 +476,27 @@ def revisar_correo():
         return correo.revisar_ahora()
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+@app.post("/api/microsoft/iniciar")
+def microsoft_iniciar():
+    try:
+        return microsoft.iniciar()
+    except microsoft.ErrorMicrosoft as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(400, f"No se pudo contactar con Microsoft: {e}")
+
+
+@app.get("/api/microsoft/estado")
+def microsoft_estado():
+    return microsoft.estado()
+
+
+@app.post("/api/microsoft/desconectar")
+def microsoft_desconectar():
+    microsoft.desconectar()
+    return {"ok": True}
 
 
 app.mount("/", StaticFiles(directory=RECURSOS / "static", html=True), name="static")

@@ -41,6 +41,8 @@ POR_DEFECTO = {
     "imap_usuario": "",
     "imap_password": "",
     "imap_carpeta": "INBOX",
+    "imap_auth": "password",   # password | microsoft
+    "ms_client_id": "",
     "revisar_cada_min": 5,
     "correo_activo": False,
     "festivos": FESTIVOS_INICIALES,

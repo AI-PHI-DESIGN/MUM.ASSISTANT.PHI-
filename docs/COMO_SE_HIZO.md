@@ -26,6 +26,7 @@ igual para otro profesional (abogado, gestor, administrador de fincas, médico..
 | Base de datos | SQLite (`data/procura.db`) | Un archivo; copia de seguridad = copiar la carpeta `data` |
 | Interfaz | HTML + JS + CSS **sin frameworks** ni compilación | Nada que construir; fácil de tocar |
 | Correo | IMAP (`imaplib`) en un hilo cada N min, **solo lectura** (`BODY.PEEK`) | Funciona con Gmail (contraseña de aplicación) y casi todos los proveedores |
+| Outlook / Microsoft 365 | OAuth2 con **MSAL**, flujo de *código de dispositivo* + IMAP `XOAUTH2`; token en `microsoft_token.json` | Microsoft ya no admite IMAP con contraseña. Requiere registrar la app en Entra una vez (`docs/MICROSOFT.md`) |
 | PDFs | `pypdf` para extraer texto | Ligero |
 | IA | SDK oficial `anthropic`, modelo `claude-opus-5`, `fallbacks="default"` | Calidad máxima; el respaldo evita rechazos |
 | Clasificación | **Salida estructurada** (`output_config.format` con JSON Schema) | Ficha siempre válida → se guarda directamente |
@@ -92,7 +93,10 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 - `pkill -f patrón` puede matar la propia shell si el patrón aparece en el comando → guardar el PID con `$!`.
 - Si falta la clave de IA, los documentos se quedan «pendientes» (no «error») y se procesan solos al ponerla.
 - El generador de streaming debe capturar sus propios errores, o la respuesta llega vacía.
-- Outlook/Microsoft 365 suele bloquear IMAP con contraseña → alternativa: reenvío a Gmail.
+- Outlook/Microsoft 365 no admite IMAP con contraseña → «Conectar con Outlook» (MSAL, device code, XOAUTH2,
+  permiso `https://outlook.office.com/IMAP.AccessAsUser.All`). El alta en Entra debe ser *multiinquilino +
+  cuentas personales* y con *flujos de clientes públicos* activado. El Id. de cliente va en
+  `app/microsoft.py` (o en Ajustes → Avanzado para probar). Alternativa sin alta: reenvío a Gmail.
 - Aranzadi Fusión no tiene API pública conocida → exportar `.ics`, leer sus avisos por correo, importar CSV.
 - Ejecutable sin consola (`--noconsole` / `--windowed`): `sys.stdout` es `None` y uvicorn falla → redirigir
   stdout/stderr a `registro.log` y pasar `log_config=None` a `uvicorn.run(app, ...)` (pasar el objeto `app`,

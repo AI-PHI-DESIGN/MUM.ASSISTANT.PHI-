@@ -558,8 +558,11 @@ VISTAS.bienvenida = async () => {
           <div><label>Dirección de correo</label><input type="email" id="b-usuario" value="${esc(c.imap_usuario)}" placeholder="nombre@gmail.com"></div>
         </div>
         <div class="fila oculto" id="b-otro"><div><label>Servidor IMAP (te lo dice tu proveedor)</label><input id="b-host" value="${esc(c.imap_host)}"></div></div>
-        <label>Contraseña de aplicación</label><input type="password" id="b-pass" value="${esc(c.imap_password)}" autocomplete="off">
-        <div class="botones" style="margin-top:8px"><button onclick="probarCorreoBienvenida()">Comprobar correo</button><span id="b-correo-res"></span></div>
+        <div id="b-con-clave">
+          <label>Contraseña de aplicación</label><input type="password" id="b-pass" value="${esc(c.imap_password)}" autocomplete="off">
+          <div class="botones" style="margin-top:8px"><button onclick="probarCorreoBienvenida()">Comprobar correo</button><span id="b-correo-res"></span></div>
+        </div>
+        <div id="b-ms" class="oculto"></div>
         <div class="ayuda" id="b-ayuda-correo"></div></div>
       <div class="tarjeta paso"><h3>Últimos detalles</h3>
         <label class="check"><input type="checkbox" id="b-arranque" ${c.arrancar_con_el_ordenador ? "checked" : ""}> Abrir el asistente al encender el ordenador (recomendado, así no se pierde ningún aviso)</label>
@@ -569,14 +572,18 @@ VISTAS.bienvenida = async () => {
   const ayudaCorreo = () => {
     const p = $("#b-prov").value;
     $("#b-otro").classList.toggle("oculto", p !== "otro");
+    $("#b-con-clave").classList.toggle("oculto", p === "outlook");
+    $("#b-ms").classList.toggle("oculto", p !== "outlook");
+    $("#b-usuario").closest("div").classList.toggle("oculto", p === "outlook");
+    if (p === "outlook") pintarMicrosoft("b-ms");
     $("#b-ayuda-correo").innerHTML = p === "gmail"
       ? `Gmail no deja usar la contraseña normal. Hay que crear una <b>contraseña de aplicación</b>:<ol>
           <li>Entra en <a href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank">Verificación en dos pasos</a> y actívala si no lo está.</li>
           <li>Entra en <a href="https://myaccount.google.com/apppasswords" target="_blank">Contraseñas de aplicación</a>, escribe «Asistente» y pulsa <i>Crear</i>.</li>
           <li>Copia las 16 letras que salen y pégalas arriba.</li></ol>`
       : p === "outlook"
-      ? `Prueba con tu contraseña. Si Microsoft no deja entrar (pasa a menudo), la solución es crear una cuenta de Gmail,
-         <a href="https://support.microsoft.com/es-es/office/activar-o-desactivar-el-reenv%C3%ADo-autom%C3%A1tico-en-outlook-7f2670a1-7fff-4475-8a3c-5822d63b0c8e" target="_blank">reenviar ahí automáticamente</a> tu correo y conectar la de Gmail.`
+      ? `Pulsa <b>Conectar con Outlook</b>. Saldrá un código: ábrelo en la página de Microsoft, escribe el código,
+         entra con tu correo y contraseña de siempre y pulsa <i>Aceptar</i>. No hace falta crear ninguna contraseña.`
       : `Pide a tu proveedor de correo el «servidor IMAP» y una contraseña para programas.`;
   };
   $("#b-prov").addEventListener("change", ayudaCorreo); ayudaCorreo();
@@ -609,9 +616,18 @@ const probarCorreoBienvenida = () => probarCorreo(datosCorreoBienvenida(), "b-co
 
 async function terminarBienvenida() {
   const correo = datosCorreoBienvenida();
+  if ($("#b-prov").value === "outlook") {
+    const ms = await api("/api/microsoft/estado");
+    Object.assign(correo, { imap_auth: "microsoft", imap_host: "outlook.office365.com", imap_usuario: ms.usuario || "", imap_password: "" });
+    correo.listo = ms.estado === "conectado";
+  } else {
+    correo.imap_auth = "password";
+    correo.listo = !!(correo.imap_host && correo.imap_usuario && correo.imap_password);
+  }
+  const listo = correo.listo; delete correo.listo;
   const body = { nombre_procuradora: $("#b-nombre").value.trim(), ciudad: $("#b-ciudad").value.trim(),
     anthropic_api_key: $("#b-clave").value.trim(), ...correo,
-    correo_activo: !!(correo.imap_host && correo.imap_usuario && correo.imap_password),
+    correo_activo: listo,
     arrancar_con_el_ordenador: $("#b-arranque").checked, bienvenida_hecha: true };
   if (!body.nombre_procuradora) return avisar("Falta tu nombre");
   if (!body.anthropic_api_key) return avisar("Falta la clave de la inteligencia artificial");
@@ -619,6 +635,43 @@ async function terminarBienvenida() {
   if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
   avisar(body.correo_activo ? "¡Listo! Voy a mirar tu correo…" : "¡Listo! (El correo lo puedes configurar luego en Ajustes)");
   location.hash = "hoy";
+}
+
+// ---------- conexión con Microsoft (Outlook)
+let sondeoMicrosoft;
+async function pintarMicrosoft(id) {
+  const el = $("#" + id);
+  if (!el) return;
+  const e = await api("/api/microsoft/estado");
+  clearTimeout(sondeoMicrosoft);
+  if (e.estado === "conectado") {
+    el.innerHTML = `<p class="ok-texto">✓ Outlook conectado: ${esc(e.usuario)}</p>
+      <div class="botones"><button onclick="probarCorreo({imap_auth:'microsoft'}, '${id}-res')">Comprobar correo</button>
+      <button class="peligro" onclick="desconectarMicrosoft('${id}')">Desconectar</button><span id="${id}-res"></span></div>`;
+  } else if (e.estado === "esperando") {
+    el.innerHTML = `<div class="tarjeta" style="text-align:center">
+      <p style="margin:0">1. Copia este código:</p>
+      <div class="cifra" style="letter-spacing:.15em; margin:6px 0">${esc(e.codigo)}</div>
+      <button class="mini" onclick="navigator.clipboard.writeText('${esc(e.codigo)}').then(()=>avisar('Código copiado'))">Copiar código</button>
+      <p>2. <a href="${esc(e.url)}" target="_blank"><b>Abre la página de Microsoft</b></a>, pega el código, entra con tu cuenta y pulsa <i>Aceptar</i>.</p>
+      <p class="suave">Esperando a que termines en la página de Microsoft…</p></div>`;
+    sondeoMicrosoft = setTimeout(() => pintarMicrosoft(id), 3000);
+  } else {
+    el.innerHTML = `${e.error ? `<p class="error-texto">${esc(e.error)}</p>` : ""}
+      <button class="principal" onclick="conectarMicrosoft('${id}')">Conectar con Outlook</button>`;
+  }
+}
+async function conectarMicrosoft(id) {
+  try {
+    const r = await api("/api/microsoft/iniciar", { method: "POST" });
+    window.open(r.url, "_blank");
+  } catch { return; }
+  pintarMicrosoft(id);
+}
+async function desconectarMicrosoft(id) {
+  if (!confirm("¿Desconectar la cuenta de Outlook? Dejará de revisarse el correo.")) return;
+  await api("/api/microsoft/desconectar", { method: "POST" });
+  pintarMicrosoft(id);
 }
 
 async function cerrarPrograma() {
@@ -643,10 +696,17 @@ VISTAS.ajustes = async () => {
         ${campo("modelo", "Modelo")}</div>
       <div class="tarjeta"><h3>Correo</h3>
         <label class="check"><input type="checkbox" id="s-correo_activo" ${c.correo_activo ? "checked" : ""}> Revisar el correo automáticamente</label>
+        <label>Forma de conectar</label>
+        <select id="s-imap_auth"><option value="microsoft" ${c.imap_auth === "microsoft" ? "selected" : ""}>Cuenta de Microsoft (Outlook, Hotmail, Microsoft 365)</option>
+          <option value="password" ${c.imap_auth !== "microsoft" ? "selected" : ""}>Usuario y contraseña (Gmail y otros)</option></select>
+        <div id="s-ms-bloque"><div id="s-ms" style="margin-top:10px"></div>
+          <details style="margin-top:10px"><summary>Avanzado</summary>${campo("ms_client_id", "Id. de aplicación de Microsoft (ver docs/MICROSOFT.md)")}</details></div>
+        <div id="s-clave-bloque">
         <div class="fila">${campo("imap_host", "Servidor IMAP")}${campo("imap_puerto", "Puerto", "number")}</div>
         <div class="fila">${campo("imap_usuario", "Usuario (dirección de correo)", "email")}${campo("imap_password", "Contraseña de aplicación", "password", 'autocomplete="off"')}</div>
-        <div class="fila">${campo("imap_carpeta", "Carpeta")}${campo("revisar_cada_min", "Revisar cada (minutos)", "number")}</div>
         <div class="botones" style="margin-top:8px"><button onclick="probarCorreo({imap_host: $('#s-imap_host').value, imap_puerto: +$('#s-imap_puerto').value, imap_usuario: $('#s-imap_usuario').value, imap_password: $('#s-imap_password').value}, 's-correo-res')">Comprobar correo</button><span id="s-correo-res"></span></div>
+        </div>
+        <div class="fila">${campo("imap_carpeta", "Carpeta")}${campo("revisar_cada_min", "Revisar cada (minutos)", "number")}</div>
         <small>Gmail: imap.gmail.com · Outlook/Hotmail: outlook.office365.com · Para Gmail hace falta una «contraseña de aplicación» (ver <a href="#bienvenida">bienvenida</a>).</small></div>
       <div class="tarjeta"><h3>Programa</h3>
         <label class="check"><input type="checkbox" id="s-arrancar_con_el_ordenador" ${c.arrancar_con_el_ordenador ? "checked" : ""}> Abrir al encender el ordenador</label>
@@ -659,12 +719,19 @@ VISTAS.ajustes = async () => {
         <small>Una fecha por línea (AAAA-MM-DD). Añade cada año los festivos de la Comunitat y de la localidad del juzgado.</small></div>
       <div class="botones"><button class="principal" onclick="guardarAjustes()">Guardar ajustes</button></div>
     </div>`;
+  const alternarAcceso = () => {
+    const ms = $("#s-imap_auth").value === "microsoft";
+    $("#s-ms-bloque").classList.toggle("oculto", !ms);
+    $("#s-clave-bloque").classList.toggle("oculto", ms);
+    if (ms) pintarMicrosoft("s-ms");
+  };
+  $("#s-imap_auth").addEventListener("change", alternarAcceso); alternarAcceso();
   const v = await api("/api/version");
   $("#s-info-version").innerHTML = `Versión ${esc(v.version)}. Tus datos están en: <code>${esc(v.datos)}</code> (copia esa carpeta de vez en cuando como copia de seguridad).`;
 };
 async function guardarAjustes() {
   const body = {};
-  ["nombre_procuradora", "ciudad", "anthropic_api_key", "modelo", "imap_host", "imap_usuario", "imap_password", "imap_carpeta", "festivos"].forEach((k) => (body[k] = $(`#s-${k}`).value));
+  ["nombre_procuradora", "ciudad", "anthropic_api_key", "modelo", "imap_host", "imap_usuario", "imap_password", "imap_carpeta", "festivos", "imap_auth", "ms_client_id"].forEach((k) => (body[k] = $(`#s-${k}`).value));
   ["imap_puerto", "revisar_cada_min"].forEach((k) => (body[k] = +$(`#s-${k}`).value));
   ["correo_activo", "agosto_inhabil", "navidad_inhabil", "arrancar_con_el_ordenador"].forEach((k) => (body[k] = $(`#s-${k}`).checked));
   await api("/api/ajustes", { method: "PUT", body });
