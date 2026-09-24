@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asistente de Procura</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23254d6b'/><text x='16' y='22' font-size='17' text-anchor='middle' fill='white' font-family='Georgia'>P</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="menu">
+  <div class="marca"><span class="logo">P</span><div><b>Asistente</b><small>de Procura</small></div></div>
+  <nav>
+    <a href="#hoy" data-v="hoy">Hoy</a>
+    <a href="#bandeja" data-v="bandeja">Bandeja <span class="contador" id="c-bandeja"></span></a>
+    <a href="#plazos" data-v="plazos">Plazos <span class="contador rojo" id="c-plazos"></span></a>
+    <a href="#asuntos" data-v="asuntos">Asuntos</a>
+    <a href="#contactos" data-v="contactos">Contactos</a>
+    <a href="#asistente" data-v="asistente">Asistente</a>
+    <a href="#ajustes" data-v="ajustes">Ajustes</a>
+  </nav>
+  <div class="estado-correo" id="estado-correo"></div>
+</aside>
+<main id="vista"></main>
+<div id="modal" class="modal oculto"><div class="caja" id="modal-caja"></div></div>
+<div id="aviso" class="aviso oculto"></div>
+<input type="file" id="selector-archivos" multiple accept=".pdf,.txt" hidden>
+<script src="app.js"></script>
+</body>
+</html>
