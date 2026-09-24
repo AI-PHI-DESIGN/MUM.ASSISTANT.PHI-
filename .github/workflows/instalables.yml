@@ -68,8 +68,10 @@ jobs:
     if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with: { path: salida, merge-multiple: true }
+      - run: cp docs/Guia_Asistente_de_Procura.pdf salida/
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ github.run_number }}
@@ -81,6 +83,8 @@ jobs:
             ## Descargar
             - **Windows:** [AsistenteProcura.exe](https://github.com/${{ github.repository }}/releases/latest/download/AsistenteProcura.exe)
             - **Mac:** [AsistenteProcura-Mac.zip](https://github.com/${{ github.repository }}/releases/latest/download/AsistenteProcura-Mac.zip)
+
+            - **Guía de inicio (PDF):** [Guia_Asistente_de_Procura.pdf](https://github.com/${{ github.repository }}/releases/latest/download/Guia_Asistente_de_Procura.pdf)
 
             ## Cómo instalarlo
             1. Descarga el archivo y guárdalo en una carpeta fija (por ejemplo, *Documentos*).

@@ -84,6 +84,12 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 10. Workflow `.github/workflows/instalables.yml`: pruebas → compilar Windows y Mac → comprobar que arrancan
     (`curl /api/version`) → publicar Release `v<n>` con enlaces fijos `releases/latest/download/...`.
 11. Bienvenida, «Cerrar programa», aviso de actualización, README para la usuaria, esta receta.
+12. **Entrega a la usuaria:** guía PDF con capturas (`docs/guia/guia.html` → Chromium `page.pdf()` →
+    `docs/Guia_Asistente_de_Procura.pdf`, adjunta en cada Release). Capturas con **datos inventados**
+    (`herramientas/demo.py`) y estados simulados con `page.route()` (p. ej. el código de Microsoft). Incluir:
+    qué hace, qué tener a mano, instalar (avisos de Windows), configurar, día a día, **lista de pruebas de la
+    primera semana**, cosas importantes y tabla «si algo falla». Revisar el PDF en miniatura (pypdfium2) antes de
+    enviarlo. Acompañarlo de un mensaje corto con los dos enlaces.
 
 ## 6. Problemas encontrados y soluciones
 

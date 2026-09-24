@@ -23,6 +23,9 @@ en su propio ordenador y guarda los datos allí.
 
 ## 1. Instalación: descargar y abrir
 
+**Guía de inicio con capturas (PDF, para la usuaria):**
+<https://github.com/AI-PHI-DESIGN/MUM.ASSISTANT.PHI-/releases/latest/download/Guia_Asistente_de_Procura.pdf>
+
 **Descargar la última versión:**
 
 - **Windows:** <https://github.com/AI-PHI-DESIGN/MUM.ASSISTANT.PHI-/releases/latest/download/AsistenteProcura.exe>
