@@ -53,13 +53,22 @@ programa y sustituir el archivo antiguo por el nuevo. Los datos se conservan.
 Su nombre **tal como aparece en las notificaciones** (p. ej. «MARÍA GARCÍA LÓPEZ»). Así la IA sabe cuál es
 «nuestra parte» en cada procedimiento.
 
-### Clave de la IA (Anthropic)
-1. Entrar en <https://console.anthropic.com> y crear una cuenta.
-2. En *Billing*, añadir saldo (con 10–20 € hay para bastante tiempo; se paga por uso).
-3. En *API Keys → Create Key*, copiar la clave (empieza por `sk-ant-`) y pegarla. Botón **Comprobar clave**.
+### Inteligencia artificial: Gemini (gratis) o Claude (de pago)
+Se elige en la bienvenida o en *Ajustes → Inteligencia artificial*, y se puede cambiar cuando se quiera.
 
-Coste orientativo: unos céntimos por notificación analizada y por escrito redactado.
-(Esto lo puede hacer otra persona y darle la clave ya creada.)
+**Gemini de Google (gratis)** — para empezar a probar:
+1. Entrar en <https://aistudio.google.com/apikey> con una cuenta de Google.
+2. Aceptar las condiciones y pulsar *Crear clave de API*. Copiar la clave (empieza por `AIza`) y pegarla.
+   Botón **Comprobar clave** (además elige solo el modelo gratuito más reciente).
+
+⚠️ En el plan gratuito **Google puede guardar y revisar lo que se le envía** para mejorar sus productos. Por el
+secreto profesional, úsalo para probar y valora pasar a Claude. Tiene límites de uso por minuto y por día: si se
+alcanzan, los documentos se quedan pendientes y se reintentan solos.
+
+**Claude de Anthropic (de pago, mejor calidad, no usa los datos para entrenar)**:
+1. Entrar en <https://console.anthropic.com>, añadir saldo en *Billing* (con 5–10 € hay para tiempo) y crear una
+   clave en *API Keys* (empieza por `sk-ant-`).
+2. En *Ajustes*, elegir Claude, pegar la clave y **Comprobar clave**. Unos céntimos por documento.
 
 ### Correo
 Elegir el tipo de correo, escribir la dirección y la contraseña, y pulsar **Comprobar correo**.
@@ -101,9 +110,11 @@ de la Comunitat Valenciana y València de 2026, que **hay que revisar** con el c
 - Todos los datos (base de datos, PDFs, ajustes) se guardan **solo en este ordenador**, en la carpeta
   `Documentos/Asistente de Procura`.
   El programa solo es accesible desde este mismo ordenador.
-- Para analizar documentos y redactar, el texto se envía a la IA de **Anthropic (Claude)**. Según sus condiciones
-  comerciales, los datos enviados por la API **no se usan para entrenar** sus modelos. Aun así, conviene
-  valorarlo desde el punto de vista del secreto profesional y la protección de datos.
+- Para analizar documentos y redactar, el texto se envía a la IA elegida:
+  - **Gemini gratis (Google):** Google **puede usar y revisar** lo enviado para mejorar sus productos.
+  - **Claude (Anthropic, de pago):** según sus condiciones comerciales, los datos de la API **no se usan para
+    entrenar**.
+  Conviene valorarlo desde el punto de vista del secreto profesional y la protección de datos.
 - Las contraseñas se guardan en `data/config.json` en este ordenador: **proteja el ordenador con contraseña**.
 
 ## 5. Copias de seguridad

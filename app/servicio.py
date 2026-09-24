@@ -32,14 +32,15 @@ def crear_documento(origen: str, recibido_en: str, texto: str, remitente: str = 
 def procesar(doc_id: int) -> None:
     cfg = config.cargar()
     doc = db.fila("SELECT * FROM documentos WHERE id = ?", (doc_id,))
-    if not doc or not cfg.get("anthropic_api_key"):
+    if not doc or not ia.hay_clave(cfg):
         return  # sin clave se queda pendiente hasta que se configure
     cabecera = (f"Recibido: {doc['recibido_en']}\nOrigen: {doc['origen']}\nRemitente: {doc['remitente'] or '-'}\n"
                 f"Asunto del correo: {doc['asunto_email'] or '-'}\nArchivos: {doc['archivos']}")
     try:
         ficha = ia.clasificar(cfg, doc["texto"] or "", cabecera)
     except ia.ErrorIA as e:
-        db.actualizar("documentos", doc_id, {"estado": "error", "error": str(e)})
+        # Si es pasajero (límite gratuito, sin internet) se queda pendiente y se reintenta solo
+        db.actualizar("documentos", doc_id, {"estado": "pendiente" if e.reintentable else "error", "error": str(e)})
         return
     aplicar_ficha(doc, ficha, cfg)
 

@@ -34,6 +34,9 @@ FESTIVOS_INICIALES = """# Una fecha por línea (AAAA-MM-DD). Los nacionales ya v
 POR_DEFECTO = {
     "nombre_procuradora": "",
     "ciudad": "Valencia",
+    "proveedor_ia": "gemini",  # gemini (gratis) | claude (de pago)
+    "gemini_api_key": "",
+    "modelo_gemini": "gemini-2.5-flash",
     "anthropic_api_key": "",
     "modelo": "claude-opus-5",
     "imap_host": "imap.gmail.com",
@@ -75,6 +78,6 @@ def guardar(cambios: dict) -> dict:
 def publico(cfg: dict) -> dict:
     """Versión para enviar al navegador: sin contraseñas en claro."""
     out = dict(cfg)
-    for k in ("anthropic_api_key", "imap_password"):
+    for k in ("anthropic_api_key", "gemini_api_key", "imap_password"):
         out[k] = "********" if cfg.get(k) else ""
     return out

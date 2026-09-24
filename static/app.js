@@ -547,11 +547,7 @@ VISTAS.bienvenida = async () => {
           <div><label>Tu nombre, tal como sale en las notificaciones</label><input id="b-nombre" value="${esc(c.nombre_procuradora)}" placeholder="MARÍA GARCÍA LÓPEZ"></div>
           <div><label>Ciudad</label><input id="b-ciudad" value="${esc(c.ciudad)}"></div>
         </div></div>
-      <div class="tarjeta paso"><h3>Clave de la inteligencia artificial</h3>
-        <label>Clave (empieza por sk-ant-)</label><input type="password" id="b-clave" value="${esc(c.anthropic_api_key)}" autocomplete="off">
-        <div class="botones" style="margin-top:8px"><button onclick="probarIA('b-clave', 'b-ia-res')">Comprobar clave</button><span id="b-ia-res"></span></div>
-        <div class="ayuda">Si no te la han dado ya: entra en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>,
-          crea una cuenta, añade saldo en <i>Billing</i> y crea una clave en <i>API Keys</i>. Cópiala y pégala aquí.</div></div>
+      <div class="tarjeta paso"><h3>Inteligencia artificial</h3>${htmlIA("b", c)}</div>
       <div class="tarjeta paso"><h3>Tu correo</h3>
         <div class="fila">
           <div><label>¿Qué correo usas?</label><select id="b-prov">${Object.entries(PROVEEDORES).map(([k, v]) => `<option value="${k}" ${k === prov ? "selected" : ""}>${v.nombre}</option>`).join("")}</select></div>
@@ -587,6 +583,7 @@ VISTAS.bienvenida = async () => {
       : `Pide a tu proveedor de correo el «servidor IMAP» y una contraseña para programas.`;
   };
   $("#b-prov").addEventListener("change", ayudaCorreo); ayudaCorreo();
+  prepararIA("b");
 };
 
 function datosCorreoBienvenida() {
@@ -594,12 +591,14 @@ function datosCorreoBienvenida() {
   return { imap_host: p === "otro" ? $("#b-host").value.trim() : PROVEEDORES[p].host, imap_puerto: 993,
     imap_usuario: $("#b-usuario").value.trim(), imap_password: $("#b-pass").value.replace(/\s/g, "") };
 }
-async function probarIA(campo, salida) {
-  const res = $("#" + salida);
+async function probarIA(pre) {
+  const res = $(`#${pre}-ia-res`);
   res.innerHTML = "Comprobando…";
   try {
-    const r = await fetch("/api/probar/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ anthropic_api_key: $("#" + campo).value.trim() }) });
-    res.innerHTML = r.ok ? `<span class="ok-texto">✓ La clave funciona</span>` : `<span class="error-texto">${esc((await r.json()).detail)}</span>`;
+    const r = await fetch("/api/probar/ia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(claveIA(pre)) });
+    const j = await r.json();
+    res.innerHTML = r.ok ? `<span class="ok-texto">✓ La clave funciona</span>` : `<span class="error-texto">${esc(j.detail)}</span>`;
+    if (j.modelo_gemini && $("#s-modelo_gemini")) $("#s-modelo_gemini").value = j.modelo_gemini;
   } catch { res.innerHTML = `<span class="error-texto">No se pudo comprobar.</span>`; }
 }
 async function probarCorreo(datos, salida) {
@@ -626,15 +625,52 @@ async function terminarBienvenida() {
   }
   const listo = correo.listo; delete correo.listo;
   const body = { nombre_procuradora: $("#b-nombre").value.trim(), ciudad: $("#b-ciudad").value.trim(),
-    anthropic_api_key: $("#b-clave").value.trim(), ...correo,
+    proveedor_ia: $("#b-proveedor_ia").value, gemini_api_key: $("#b-gemini_api_key").value.trim(),
+    anthropic_api_key: $("#b-anthropic_api_key").value.trim(), ...correo,
     correo_activo: listo,
     arrancar_con_el_ordenador: $("#b-arranque").checked, bienvenida_hecha: true };
   if (!body.nombre_procuradora) return avisar("Falta tu nombre");
-  if (!body.anthropic_api_key) return avisar("Falta la clave de la inteligencia artificial");
+  if (!claveIA("b").clave) return avisar("Falta la clave de la inteligencia artificial");
   await api("/api/ajustes", { method: "PUT", body });
   if ("Notification" in window && Notification.permission === "default") await Notification.requestPermission();
   avisar(body.correo_activo ? "¡Listo! Voy a mirar tu correo…" : "¡Listo! (El correo lo puedes configurar luego en Ajustes)");
   location.hash = "hoy";
+}
+
+// ---------- elección de inteligencia artificial (bienvenida y ajustes)
+function htmlIA(pre, c) {
+  return `
+    <label>¿Qué inteligencia artificial usar?</label>
+    <select id="${pre}-proveedor_ia">
+      <option value="gemini" ${c.proveedor_ia !== "claude" ? "selected" : ""}>Gemini de Google (gratis)</option>
+      <option value="claude" ${c.proveedor_ia === "claude" ? "selected" : ""}>Claude de Anthropic (de pago, mejor calidad)</option>
+    </select>
+    <div id="${pre}-bloque-gemini">
+      <label>Clave de Gemini (empieza por AIza)</label><input type="password" id="${pre}-gemini_api_key" value="${esc(c.gemini_api_key)}" autocomplete="off">
+      <div class="ayuda">Se consigue gratis con una cuenta de Google: entra en <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>,
+        acepta las condiciones y pulsa <i>Crear clave de API</i>. Cópiala y pégala aquí.</div>
+      <div class="accion" style="margin-top:10px"><b>Privacidad:</b> con la versión gratuita, Google puede guardar y revisar lo que se le envía
+        para mejorar sus productos. No es lo ideal para documentos con datos de clientes: úsalo para probar y, si te convence, pasa a Claude.</div>
+    </div>
+    <div id="${pre}-bloque-claude">
+      <label>Clave de Anthropic (empieza por sk-ant-)</label><input type="password" id="${pre}-anthropic_api_key" value="${esc(c.anthropic_api_key)}" autocomplete="off">
+      <div class="ayuda">Entra en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>, añade saldo en <i>Billing</i>
+        y crea una clave en <i>API Keys</i>. Cuesta unos céntimos por documento. No usa tus datos para entrenar.</div>
+    </div>
+    <div class="botones" style="margin-top:8px"><button onclick="probarIA('${pre}')">Comprobar clave</button><span id="${pre}-ia-res"></span></div>`;
+}
+function prepararIA(pre) {
+  const alternar = () => {
+    const g = $(`#${pre}-proveedor_ia`).value === "gemini";
+    $(`#${pre}-bloque-gemini`).classList.toggle("oculto", !g);
+    $(`#${pre}-bloque-claude`).classList.toggle("oculto", g);
+    $(`#${pre}-ia-res`).innerHTML = "";
+  };
+  $(`#${pre}-proveedor_ia`).addEventListener("change", alternar); alternar();
+}
+function claveIA(pre) {
+  const prov = $(`#${pre}-proveedor_ia`).value;
+  return { proveedor: prov, clave: $(`#${pre}-${prov === "gemini" ? "gemini_api_key" : "anthropic_api_key"}`).value.trim() };
 }
 
 // ---------- conexión con Microsoft (Outlook)
@@ -690,10 +726,9 @@ VISTAS.ajustes = async () => {
       <div class="tarjeta"><h3>Datos de la procuradora</h3>
         <div class="fila">${campo("nombre_procuradora", "Nombre completo (tal como aparece en las notificaciones)")}${campo("ciudad", "Ciudad")}</div></div>
       <div class="tarjeta"><h3>Inteligencia artificial</h3>
-        ${campo("anthropic_api_key", "Clave de Anthropic (empieza por sk-ant-)", "password", 'autocomplete="off"')}
-        <small>Se consigue en console.anthropic.com → API Keys. Ver el manual (README).</small>
-        <div class="botones" style="margin-top:8px"><button onclick="probarIA('s-anthropic_api_key', 's-ia-res')">Comprobar clave</button><span id="s-ia-res"></span></div>
-        ${campo("modelo", "Modelo")}</div>
+        ${htmlIA("s", c)}
+        <details style="margin-top:10px"><summary>Avanzado</summary>
+          <div class="fila">${campo("modelo_gemini", "Modelo de Gemini")}${campo("modelo", "Modelo de Claude")}</div></details></div>
       <div class="tarjeta"><h3>Correo</h3>
         <label class="check"><input type="checkbox" id="s-correo_activo" ${c.correo_activo ? "checked" : ""}> Revisar el correo automáticamente</label>
         <label>Forma de conectar</label>
@@ -726,12 +761,13 @@ VISTAS.ajustes = async () => {
     if (ms) pintarMicrosoft("s-ms");
   };
   $("#s-imap_auth").addEventListener("change", alternarAcceso); alternarAcceso();
+  prepararIA("s");
   const v = await api("/api/version");
   $("#s-info-version").innerHTML = `Versión ${esc(v.version)}. Tus datos están en: <code>${esc(v.datos)}</code> (copia esa carpeta de vez en cuando como copia de seguridad).`;
 };
 async function guardarAjustes() {
   const body = {};
-  ["nombre_procuradora", "ciudad", "anthropic_api_key", "modelo", "imap_host", "imap_usuario", "imap_password", "imap_carpeta", "festivos", "imap_auth", "ms_client_id"].forEach((k) => (body[k] = $(`#s-${k}`).value));
+  ["nombre_procuradora", "ciudad", "proveedor_ia", "gemini_api_key", "modelo_gemini", "anthropic_api_key", "modelo", "imap_host", "imap_usuario", "imap_password", "imap_carpeta", "festivos", "imap_auth", "ms_client_id"].forEach((k) => (body[k] = $(`#s-${k}`).value));
   ["imap_puerto", "revisar_cada_min"].forEach((k) => (body[k] = +$(`#s-${k}`).value));
   ["correo_activo", "agosto_inhabil", "navidad_inhabil", "arrancar_con_el_ordenador"].forEach((k) => (body[k] = $(`#s-${k}`).checked));
   await api("/api/ajustes", { method: "PUT", body });

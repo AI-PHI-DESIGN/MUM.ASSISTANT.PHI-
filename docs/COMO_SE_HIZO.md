@@ -29,6 +29,7 @@ igual para otro profesional (abogado, gestor, administrador de fincas, médico..
 | Outlook / Microsoft 365 | OAuth2 con **MSAL**, flujo de *código de dispositivo* + IMAP `XOAUTH2`; token en `microsoft_token.json` | Microsoft ya no admite IMAP con contraseña. Requiere registrar la app en Entra una vez (`docs/MICROSOFT.md`) |
 | PDFs | `pypdf` para extraer texto | Ligero |
 | IA | SDK oficial `anthropic`, modelo `claude-opus-5`, `fallbacks="default"` | Calidad máxima; el respaldo evita rechazos |
+| IA gratuita | **Gemini** (plan gratuito de AI Studio) con el SDK oficial `google-genai`, seleccionable en Ajustes (`proveedor_ia`); Claude sigue disponible | Si no hay presupuesto para la API de Claude. Aviso de privacidad visible (Google puede usar los datos del plan gratuito) |
 | Clasificación | **Salida estructurada** (`output_config.format` con JSON Schema) | Ficha siempre válida → se guarda directamente |
 | Asistente | Streaming (`messages.stream`) → `StreamingResponse` → `fetch().body.getReader()` | El texto aparece mientras se escribe |
 | Word | `python-docx` | Lo que usan en el despacho |
@@ -116,6 +117,15 @@ README.md         manual para la usuaria (en su idioma, sin tecnicismos)
 - Sin firma de código: Windows SmartScreen («Más información → Ejecutar de todas formas») y Mac Gatekeeper
   (clic derecho → Abrir). Explicarlo en el README y en la Release.
 - Repositorio **público** → no subir nunca datos reales (se anonimizaron los tests).
+- **Gemini** (`app/ia_gemini.py`):
+  - Guardar el `genai.Client` en una variable mientras se usa: `genai.Client(...).models.x()` en una línea
+    cierra el cliente antes de la petición («client has been closed»).
+  - `response_schema` con `types.Schema` (tipos en mayúsculas, `nullable=True`, sin `additionalProperties`):
+    se convierte el mismo JSON Schema de Claude con `a_esquema_gemini()`.
+  - El modelo se elige solo al comprobar la clave (el `gemini-X.Y-flash` estable más nuevo de `models.list()`),
+    y si Google lo retira (404) se vuelve a elegir y se reintenta.
+  - Límite gratuito (429) y errores de red → `ErrorIA(reintentable=True)`: el documento queda pendiente y el bucle
+    lo reintenta.
 
 ## 7. Para adaptarlo a otra profesión
 

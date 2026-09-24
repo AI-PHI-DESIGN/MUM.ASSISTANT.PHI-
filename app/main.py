@@ -88,7 +88,7 @@ def resumen():
         "no_leidos": no_leidos,
         "ultimo_documento_id": (db.fila("SELECT MAX(id) AS m FROM documentos") or {}).get("m") or 0,
         "correo": {**correo.estado, "activo": config.cargar().get("correo_activo")},
-        "configurado": bool(config.cargar().get("anthropic_api_key")),
+        "configurado": ia.hay_clave(config.cargar()),
         "bienvenida_hecha": bool(config.cargar().get("bienvenida_hecha")),
     }
 
@@ -438,18 +438,22 @@ def guardar_ajustes(cambios: dict):
 
 
 class PruebaIA(BaseModel):
-    anthropic_api_key: str = ""
+    proveedor: str = "gemini"
+    clave: str = ""
 
 
 @app.post("/api/probar/ia")
 def probar_ia(p: PruebaIA):
     cfg = config.cargar()
-    clave = p.anthropic_api_key if p.anthropic_api_key and p.anthropic_api_key != "********" else cfg["anthropic_api_key"]
+    campo = "gemini_api_key" if p.proveedor == "gemini" else "anthropic_api_key"
+    clave = p.clave if p.clave and p.clave != "********" else cfg[campo]
     try:
-        ia.probar_clave(clave, cfg.get("modelo") or "claude-opus-5")
+        ajustes = ia.probar_clave(p.proveedor, clave, cfg)
     except ia.ErrorIA as e:
         raise HTTPException(400, str(e))
-    return {"ok": True}
+    if ajustes:
+        config.guardar(ajustes)
+    return {"ok": True, **ajustes}
 
 
 class PruebaCorreo(BaseModel):
